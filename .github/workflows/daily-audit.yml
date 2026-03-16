@@ -2,8 +2,8 @@ name: Jira Audit Pipeline
 
 on:
   schedule:
-    # Runs at 08:00 GMT+7 (01:00 UTC), Mon-Fri
-    - cron: "0 1 * * 1-5"
+    # Runs at 06:00 GMT+7 (23:00 UTC previous day), Mon-Fri
+    - cron: "0 23 * * 0-4"
   workflow_dispatch:
 
 jobs:
