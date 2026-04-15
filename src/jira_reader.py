@@ -2,7 +2,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 import requests
+from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
+from urllib3.util.retry import Retry
 
 from src.config import Config
 
@@ -11,14 +13,22 @@ def _auth(config: Config) -> HTTPBasicAuth:
     return HTTPBasicAuth(config.jira_email, config.jira_api_token)
 
 
+def _session() -> requests.Session:
+    session = requests.Session()
+    retry = Retry(total=3, backoff_factor=2, status_forcelist=[502, 503, 504])
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return session
+
+
 def _search_issues(config: Config, jql: str, fields: str) -> list[dict[str, Any]]:
     url = f"{config.jira_base_url}/rest/api/2/search"
+    session = _session()
     issues: list[dict[str, Any]] = []
     start_at = 0
     max_results = 100
 
     while True:
-        resp = requests.get(
+        resp = session.get(
             url,
             auth=_auth(config),
             params={
@@ -27,7 +37,7 @@ def _search_issues(config: Config, jql: str, fields: str) -> list[dict[str, Any]
                 "startAt": start_at,
                 "maxResults": max_results,
             },
-            timeout=30,
+            timeout=120,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -62,12 +72,13 @@ def fetch_todo_tasks(config: Config) -> list[dict[str, Any]]:
 
 def _search_issues_with_changelog(config: Config, jql: str, fields: str) -> list[dict[str, Any]]:
     url = f"{config.jira_base_url}/rest/api/2/search"
+    session = _session()
     issues: list[dict[str, Any]] = []
     start_at = 0
     max_results = 100
 
     while True:
-        resp = requests.get(
+        resp = session.get(
             url,
             auth=_auth(config),
             params={
@@ -77,7 +88,7 @@ def _search_issues_with_changelog(config: Config, jql: str, fields: str) -> list
                 "maxResults": max_results,
                 "expand": "changelog",
             },
-            timeout=30,
+            timeout=120,
         )
         resp.raise_for_status()
         data = resp.json()
